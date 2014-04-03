@@ -1,0 +1,16 @@
+*.pyc
+*.pyo
+*~
+.*
+!.gitignore
+
+/tmp
+/env
+/docs/_build
+/docs/env
+
+/src/settings_local*.py
+/requirements_local*.txt
+db.sqlite3
+
+*.egg-info
