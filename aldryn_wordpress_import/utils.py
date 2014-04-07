@@ -19,12 +19,17 @@ from django.utils.html import linebreaks
 from filer.models import Image
 from BeautifulSoup import BeautifulSoup
 
+import factories
 
 # from future.builtins import int
 
 
 class WordpressParser(object):
     base_url = None
+    image_placeholder = str(uuid.uuid1)
+
+    def __init__(self, user):
+        self.user = user
 
     def parse(self, file_path):
         if file_path is None:
@@ -39,7 +44,7 @@ class WordpressParser(object):
             # Get a pointer to the right position in the minidom as well.
             xmlitem = xmlitems[i]
             content = linebreaks(self.wp_caption(entry.content[0]["value"]))
-            content = self.handle_images(content)
+            content, images = self.extract_images(content)
 
             # Get the time struct of the published date if possible and
             # the updated date if we can't.
@@ -55,9 +60,10 @@ class WordpressParser(object):
             if entry.wp_post_type == "post":
                 post = dict(title=entry.title, content=content,
                             publication_start=pub_date, tags=terms["tag"],
-                            old_url=entry.id)
+                            old_url=entry.id, images=images,
+                            user=self.user)
 
-                # Do something
+                self.convert_to_post(post)
 
     def wp_caption(self, post):
         """
@@ -82,47 +88,29 @@ class WordpressParser(object):
             post = post.replace(match.group(0), meta)
         return post
 
-    def handle_images(self, post):
+    def extract_images(self, post):
         """
-        Find direct image links. Check for thumbnails and create
-        filer thumbnails
+        Finds direct image links. Creates filer Image objects
+        and extracts links
         """
 
         soup = BeautifulSoup(post)
         links = soup.findAll("a")
         internal_uploads_dir = '{}/wp-content/uploads'.format(self.base_url)
-        content = post
+        images = []
         for link in links:
             href = link['href']
             if internal_uploads_dir in href:
-                replace_dict = {}
-                big_image = self.download_and_save(href)
-                big_image_new = self.construct_url(big_image)
-                replace_dict[href] = big_image_new
+                if not Image.matches_file_type(href, None, None):
+                    # File is not an image
+                    continue
+                # replace_dict = {}
+                image = self.download_and_save(href)
+                images.append(image)
+                # Remove link from content, replace with placeholder
+                link.replaceWith(self.image_placeholder)
 
-                thumbnail = link.find('img')
-                if thumbnail:
-                    old_url = thumbnail['src']
-                    new_thumb = self.handle_thumbnail(thumbnail, big_image)
-                    new_url = self.construct_url(new_thumb)
-                    replace_dict[old_url] = new_url
-
-                content = self.replace_items(replace_dict, content)
-
-        return content
-
-    def handle_thumbnail(self, img_tag, filer_image):
-        thumbnailer = get_thumbnailer(filer_image)
-        try:
-            height = img_tag['height']
-            width = img_tag['width']
-        except KeyError:
-            # No dimensions, get some defaults
-            width = 300
-            height = 225
-        thumb = thumbnailer.get_thumbnail({'size': (width, height),
-                                           'crop': True})
-        return thumb
+        return post, images
 
     def download_and_save(self, file_url):
         response = requests.get(file_url, stream=True)
@@ -139,13 +127,16 @@ class WordpressParser(object):
         os.remove(tmp_path)
         return filer_img
 
-    def construct_url(self, filer_image):
-        site = Site.objects.get_current()
-        url = 'http://{}{}'.format(site.domain, filer_image.url)
-        return url
+    def convert_to_post(self, post_data):
+        post = factories.create_post(post_data)
+        post_parts = post_data['content'].split(self.image_placeholder)
+        for number, part in enumerate(post_parts):
+            factories.create_text_plugin(part, post.content)
+            try:
+                image = post_data['images'][number]
+            except IndexError:
+                continue
+            else:
+                factories.create_filer_plugin(image, post.content)
 
-    def replace_items(self, replace_dict, content):
-        for key in replace_dict:
-            content = content.replace(key, replace_dict[key])
-        return content
 
