@@ -11,5 +11,7 @@
 	"license": {
 		"name": "BSD"
 	},
-	"installed-apps": []
+	"installed-apps": [
+        "aldryn_wordpress_import"
+    ]
 }
