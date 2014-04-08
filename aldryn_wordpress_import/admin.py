@@ -19,7 +19,7 @@ class WordPressImportAdmin(admin.ModelAdmin):
         if request.method == 'POST' and 'execute' in request.POST:
             parser = WordpressParser(user=request.user)
             instance = self.get_object(request, object_id)
-            log = parser.parse(instance.xml_file.path)
+            log = parser.parse(instance.xml_file)
             instance.log = log
             instance.imported = True
             instance.save()

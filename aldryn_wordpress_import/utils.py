@@ -32,6 +32,7 @@ class WordpressParser(object):
             raise RuntimeError("Missing file path")
 
         feed = feedparser.parse(file_path)
+        file_path.open()
         xml = parse(file_path)
         xmlitems = xml.getElementsByTagName("item")
         self.base_url = feed['channel']['wp_base_site_url']
