@@ -12,7 +12,7 @@
     <script type="text/javascript">
         (function($) {
             $(document).ready(function() {
-                $('#execute-form').on("submit", function(e){
+                $('#execute-form').submit(function(e){
                     var btn = $('#perform-import')
                     btn.val('In progress...')
                     e.preventDefault();
