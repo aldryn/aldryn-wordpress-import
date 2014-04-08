@@ -1,0 +1,32 @@
+{% extends "admin/change_form.html" %}
+{% load i18n admin_urls %}
+
+{% block object-tools-items %}
+
+    <form method="post" action="../" id="execute-form">
+    {% csrf_token %}
+        <input type="hidden" name="execute" value="true"/>
+        <input type="submit" value="Perform import" id="perform-import">
+    </form>
+
+    <script type="text/javascript">
+        (function($) {
+            $(document).ready(function() {
+                $('#execute-form').on("submit", function(e){
+                    var btn = $('#perform-import')
+                    btn.val('In progress...')
+                    e.preventDefault();
+                    $.ajax({
+                      type: "POST",
+                      url: ".",
+                      data: $(this).serialize(),
+                      success: function(data){
+                          alert('Done');
+                          location.reload();
+                      }
+                    });
+                })
+            });
+        })(django.jQuery);
+    </script>
+{% endblock %}

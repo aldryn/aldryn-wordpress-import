@@ -6,7 +6,6 @@ from .utils import WordpressParser
 
 
 class WordPressImportAdmin(admin.ModelAdmin):
-    change_form_template = 'admin/aldryn_wordpress_import/change_form.html'
     list_display = ('author', 'created', 'imported')
     raw_id_fields = ['author']
 
