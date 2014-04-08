@@ -26,7 +26,7 @@ import factories
 
 class WordpressParser(object):
     base_url = None
-    image_placeholder = str(uuid.uuid1)
+    image_placeholder = str(uuid.uuid1())
 
     def __init__(self, user):
         self.user = user
@@ -110,7 +110,7 @@ class WordpressParser(object):
                 # Remove link from content, replace with placeholder
                 link.replaceWith(self.image_placeholder)
 
-        return post, images
+        return str(soup), images
 
     def download_and_save(self, file_url):
         response = requests.get(file_url, stream=True)
@@ -128,8 +128,8 @@ class WordpressParser(object):
         return filer_img
 
     def convert_to_post(self, post_data):
-        post = factories.create_post(post_data)
         post_parts = post_data['content'].split(self.image_placeholder)
+        post = factories.create_post(post_data, parts=post_parts)
         for number, part in enumerate(post_parts):
             factories.create_text_plugin(part, post.content)
             try:
