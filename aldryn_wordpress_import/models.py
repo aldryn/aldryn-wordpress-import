@@ -6,19 +6,18 @@ from django.utils.encoding import python_2_unicode_compatible
 
 @python_2_unicode_compatible
 class WordPressImport(models.Model):
-    STATUS_CHOICES = (
-        ('completed', _('Completed')),
-        ('failed', _('Failed')),
-        ('inprogress', _('In progress')),
-        ('new', _('New'))
-    )
-    author = models.ForeignKey(User, editable=False, verbose_name=_('Author'))
+    author = models.ForeignKey(User,verbose_name=_('Author'))
     created = models.DateTimeField(_('Created'), auto_now_add=True)
-    status = models.CharField(_('Status'), editable=False, max_length=10,
-                              choices=STATUS_CHOICES)
-    log = models.TextField(_('Log'), null=True, editable=False)
-    xml_file = models.FileField(_('Wordpress Export file'))
+    imported = models.BooleanField(_('Imported'), default=False,
+                                   editable=False)
+    log = models.TextField(_('Log'), null=True, blank=True)
+    xml_file = models.FileField(_('Wordpress Export file'),
+                                upload_to='imports/%Y/%m/%d')
 
     def __str__(self):
         return 'WordPressImport @ %s - %s' % (self.created,
-                                              self.get_status_display())
+                                              self.imported)
+
+    class Meta:
+        verbose_name = 'WordPress Import'
+        verbose_name_plural = 'WordPress Imports'
