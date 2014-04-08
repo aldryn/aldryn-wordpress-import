@@ -1,6 +1,6 @@
+from BeautifulSoup import BeautifulSoup
 from collections import defaultdict
 from datetime import datetime, timedelta
-from easy_thumbnails.files import get_thumbnailer
 import feedparser
 import os
 import re
@@ -14,14 +14,10 @@ from django.core.files.storage import default_storage
 from django.core.files import File
 from django.core.files.base import ContentFile
 from django.conf import settings
-from django.contrib.sites.models import Site
 from django.utils.html import linebreaks
 from filer.models import Image
-from BeautifulSoup import BeautifulSoup
 
-import factories
-
-# from future.builtins import int
+from . import factories
 
 
 class WordpressParser(object):
@@ -39,6 +35,7 @@ class WordpressParser(object):
         xml = parse(file_path)
         xmlitems = xml.getElementsByTagName("item")
         self.base_url = feed['channel']['wp_base_site_url']
+        log, success, failed = [], [], []
 
         for (i, entry) in enumerate(feed["entries"]):
             # Get a pointer to the right position in the minidom as well.
@@ -63,7 +60,17 @@ class WordpressParser(object):
                             old_url=entry.id, images=images,
                             user=self.user)
 
-                self.convert_to_post(post)
+                result, status = self.convert_to_post(post)
+                if status:
+                    success.append(result)
+                else:
+                    failed.append(result)
+        log.extend(success)
+        log.extend(failed)
+        summary = '{} posts imported, {} failed'.format(len(success),
+                                                        len(failed))
+        log.append(summary)
+        return '\n'.join(log)
 
     def wp_caption(self, post):
         """
@@ -129,7 +136,12 @@ class WordpressParser(object):
 
     def convert_to_post(self, post_data):
         post_parts = post_data['content'].split(self.image_placeholder)
-        post = factories.create_post(post_data, parts=post_parts)
+        try:
+            post = factories.create_post(post_data, parts=post_parts)
+            # Post already exists
+        except ValueError:
+            return "Post with slug {} already exists. Skipping".format(
+                post_data['title']), False
         for number, part in enumerate(post_parts):
             factories.create_text_plugin(part, post.content)
             try:
@@ -138,5 +150,7 @@ class WordpressParser(object):
                 continue
             else:
                 factories.create_filer_plugin(image, post.content)
+
+        return "Imported post {}".format(post_data['title']), True
 
 
