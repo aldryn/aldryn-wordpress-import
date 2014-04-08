@@ -2,6 +2,7 @@ from aldryn_blog.models import Post
 from cmsplugin_filer_image.models import FilerImage
 from djangocms_text_ckeditor.models import Text
 from django.template.defaultfilters import truncatewords_html
+from django.template.defaultfilters import slugify
 
 
 def create_post(post_data, parts):
@@ -9,8 +10,13 @@ def create_post(post_data, parts):
         first_part = parts[0]
     except IndexError:
         first_part = post_data['title']
+    slug = slugify(post_data['title'])
+    post_with_slug = Post.objects.filter(slug=slug)
+    if post_with_slug.exists():
+        raise ValueError('Slug is not unique')
     post = Post(
         title=post_data['title'],
+        slug=slug,
         lead_in=truncatewords_html(first_part, 10),
         publication_start=post_data['publication_start'],
         author=post_data['user']
