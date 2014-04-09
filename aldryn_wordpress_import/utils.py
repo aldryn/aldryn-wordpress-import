@@ -2,18 +2,15 @@ from BeautifulSoup import BeautifulSoup
 from collections import defaultdict
 from datetime import datetime, timedelta
 import feedparser
-import os
 import re
 import requests
 import uuid
 import urllib2
 from time import mktime, timezone
+import StringIO
 from xml.dom.minidom import parse
 
-from django.core.files.storage import default_storage
-from django.core.files import File
-from django.core.files.base import ContentFile
-from django.conf import settings
+from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.utils.html import linebreaks
 from filer.models import Image
 
@@ -124,15 +121,12 @@ class WordpressParser(object):
         response = requests.get(file_url)
         file_name = urllib2.unquote(file_url).decode('utf8').split('/')[-1]
         file_extension = file_name.split('.')[-1]
-        tmp_name = "{}.{}".format(str(uuid.uuid1()), file_extension)
-        tmp_name = default_storage.save(tmp_name,
-                                        ContentFile(response.content))
-        tmp_path = '{}/{}'.format(settings.MEDIA_ROOT, tmp_name)
-        saved_file = File(open(tmp_path))
-
+        io = StringIO.StringIO()
+        io.write(response.content)
+        saved_file = InMemoryUploadedFile(io, None, file_name, file_extension,
+                                          io.len, None)
         filer_img = Image.objects.create(original_filename=file_name,
                                          file=saved_file)
-        os.remove(tmp_path)
         return filer_img
 
     def convert_to_post(self, post_data):
