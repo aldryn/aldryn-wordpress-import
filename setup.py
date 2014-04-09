@@ -6,7 +6,8 @@ REQUIREMENTS = [
     'Django>=1.5.5',
     'aldryn-blog',
     'feedparser',
-    'BeautifulSoup'
+    'BeautifulSoup',
+    'requests>=2.2.1'
 ]
 
 CLASSIFIERS = [
