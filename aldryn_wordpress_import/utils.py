@@ -10,6 +10,7 @@ from time import mktime, timezone
 import StringIO
 from xml.dom.minidom import parse
 
+from cms.utils import get_language_from_request
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.utils.html import linebreaks
 from filer.models import Image
@@ -21,8 +22,9 @@ class WordpressParser(object):
     base_url = None
     image_placeholder = str(uuid.uuid1())
 
-    def __init__(self, user):
-        self.user = user
+    def __init__(self, request):
+        self.user = request.user
+        self.language = get_language_from_request(request)
 
     def parse(self, file_path):
         if file_path is None:
@@ -138,13 +140,14 @@ class WordpressParser(object):
             return "Post with slug {} already exists. Skipping".format(
                 post_data['title']), False
         for number, part in enumerate(post_parts):
-            factories.create_text_plugin(part, post.content)
+            factories.create_text_plugin(part, post.content, self.language)
             try:
                 image = post_data['images'][number]
             except IndexError:
                 continue
             else:
-                factories.create_filer_plugin(image, post.content)
+                factories.create_filer_plugin(image, post.content,
+                                              self.language)
 
         return "Imported post {}".format(post_data['title']), True
 

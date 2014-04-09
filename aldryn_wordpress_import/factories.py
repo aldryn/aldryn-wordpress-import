@@ -25,7 +25,7 @@ def create_post(post_data, parts):
     return post
 
 
-def create_filer_plugin(filer_image, target_placeholder):
+def create_filer_plugin(filer_image, target_placeholder, language):
     image_plugin = FilerImage(image=filer_image)
     image_plugin.position = 0
     image_plugin.tree_id = 0
@@ -33,19 +33,19 @@ def create_filer_plugin(filer_image, target_placeholder):
     image_plugin.rght = 0
     image_plugin.level = 0
     image_plugin.plugin_type = 'FilerImagePlugin'
-    image_plugin.language = 'en-us'
+    image_plugin.language = language
     image_plugin.placeholder = target_placeholder
     image_plugin.save()
 
 
-def create_text_plugin(content, target_placeholder):
+def create_text_plugin(content, target_placeholder, language):
     text = Text(body=content)
     text.position = 0
     text.tree_id = None
     text.lft = None
     text.rght = None
     text.level = None
-    text.language = 'en-us'
+    text.language = language
     text.plugin_type = 'TextPlugin'
     text.placeholder = target_placeholder
     text.save()

@@ -17,7 +17,7 @@ class WordPressImportAdmin(admin.ModelAdmin):
 
     def change_view(self, request, object_id, form_url='', extra_context=None):
         if request.method == 'POST' and 'execute' in request.POST:
-            parser = WordpressParser(user=request.user)
+            parser = WordpressParser(request)
             instance = self.get_object(request, object_id)
             log = parser.parse(instance.xml_file)
             instance.log = log
