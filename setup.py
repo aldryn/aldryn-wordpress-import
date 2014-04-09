@@ -7,7 +7,6 @@ REQUIREMENTS = [
     'aldryn-blog',
     'feedparser',
     'BeautifulSoup',
-    'requests>=2.2.1'
 ]
 
 CLASSIFIERS = [
