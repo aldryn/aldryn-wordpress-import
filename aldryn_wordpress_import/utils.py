@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 from BeautifulSoup import BeautifulSoup
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -8,7 +9,6 @@ import uuid
 import urllib2
 from time import mktime, timezone
 import StringIO
-from xml.dom.minidom import parse
 
 from cms.utils import get_language_from_request
 from django.core.files.uploadedfile import InMemoryUploadedFile
@@ -32,19 +32,19 @@ class WordpressParser(object):
 
         feed = feedparser.parse(file_path)
         file_path.open()
-        xml = parse(file_path)
-        xmlitems = xml.getElementsByTagName("item")
         self.base_url = feed['channel']['wp_base_site_url']
         log, success, failed = [], [], []
 
         for (i, entry) in enumerate(feed["entries"]):
-            # Get a pointer to the right position in the minidom as well.
-            xmlitem = xmlitems[i]
             content = linebreaks(self.wp_caption(entry.content[0]["value"]))
             content, images = self.extract_images(content)
 
             # Get the time struct of the published date if possible and
             # the updated date if we can't.
+            if entry.wp_status == 'draft':
+                failed.append('{} skipped (draft post)'.format(
+                    entry.title))
+                continue
             pub_date = getattr(entry, "published_parsed", entry.updated_parsed)
             pub_date = datetime.fromtimestamp(mktime(pub_date))
             pub_date -= timedelta(seconds=timezone)
@@ -106,7 +106,11 @@ class WordpressParser(object):
         internal_uploads_dir = '{}/wp-content/uploads'.format(self.base_url)
         images = []
         for link in links:
-            href = link['href']
+            try:
+                href = link['href']
+            except KeyError:
+                # Link has no href
+                continue
             if internal_uploads_dir in href:
                 if not Image.matches_file_type(href, None, None):
                     # File is not an image
