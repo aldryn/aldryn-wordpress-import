@@ -22,9 +22,13 @@ class WordpressParser(object):
     base_url = None
     image_placeholder = str(uuid.uuid1())
 
-    def __init__(self, request):
-        self.user = request.user
-        self.language = get_language_from_request(request)
+    def __init__(self, request=None, user=None, language=None):
+        if user and language:
+            self.user = user
+            self.language = language
+        else:
+            self.user = request.user
+            self.language = get_language_from_request(request)
 
     def parse(self, file_path):
         if file_path is None:
