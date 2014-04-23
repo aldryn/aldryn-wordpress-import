@@ -2,7 +2,7 @@
 	"name": "WordPress Import",
 	"package-name": "aldryn-wordpress-import",
 	"description": "Wordpress import for aldryn-blog",
-	"version": "1.0b5",
+	"version": "1.0b6",
 	"url": "https://github.com/aldryn/aldryn-wordpress-import",
 	"author": {
 		"name": "Divio AG",

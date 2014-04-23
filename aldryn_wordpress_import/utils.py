@@ -13,6 +13,7 @@ import StringIO
 from cms.utils import get_language_from_request
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.utils.html import linebreaks
+from django.contrib.sites.models import Site
 from filer.models import Image
 
 from . import factories
@@ -29,6 +30,8 @@ class WordpressParser(object):
         else:
             self.user = request.user
             self.language = get_language_from_request(request)
+
+        self.site = Site.objects.get_current()
 
     def parse(self, file_path):
         if file_path is None:
@@ -124,6 +127,11 @@ class WordpressParser(object):
                 images.append(image)
                 # Remove link from content, replace with placeholder
                 link.replaceWith(self.image_placeholder)
+
+            # Re-write all internal links - GH: #3
+            if self.site.domain in href:
+                uri = href.split(self.site.domain)[1]
+                link['href'] = uri
 
         return str(soup), images
 
