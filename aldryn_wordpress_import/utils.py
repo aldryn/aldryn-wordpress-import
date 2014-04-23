@@ -122,7 +122,6 @@ class WordpressParser(object):
                 if not Image.matches_file_type(href, None, None):
                     # File is not an image
                     continue
-                # replace_dict = {}
                 image = self.download_and_save(href)
                 images.append(image)
                 # Remove link from content, replace with placeholder
