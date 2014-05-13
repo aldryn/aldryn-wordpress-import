@@ -153,6 +153,7 @@ class WordpressParser(object):
         except ValueError:
             return "Post with slug {} already exists. Skipping".format(
                 post_data['title']), False
+        key_visual = None
         for number, part in enumerate(post_parts):
             factories.create_text_plugin(part, post.content, self.language)
             try:
@@ -162,6 +163,10 @@ class WordpressParser(object):
             else:
                 factories.create_filer_plugin(image, post.content,
                                               self.language)
+                if not key_visual:
+                    key_visual = image
+        post.key_visual = key_visual
+        post.save()
 
         return "Imported post {}".format(post_data['title']), True
 
