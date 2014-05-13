@@ -107,14 +107,13 @@ class WordpressParser(object):
         Finds direct image links. Creates filer Image objects
         and extracts links
         """
-
         soup = BeautifulSoup(post)
-        links = soup.findAll("a")
+        links = soup.findAll("img")
         internal_uploads_dir = '{}/wp-content/uploads'.format(self.base_url)
         images = []
         for link in links:
             try:
-                href = link['href']
+                href = link['src']
             except KeyError:
                 # Link has no href
                 continue
