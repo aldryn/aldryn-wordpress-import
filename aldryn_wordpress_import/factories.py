@@ -17,7 +17,7 @@ def create_post(post_data, parts):
     post = Post(
         title=post_data['title'],
         slug=slug,
-        lead_in=truncatewords_html(first_part, 10),
+        lead_in=truncatewords_html(first_part, 55),
         publication_start=post_data['publication_start'],
         author=post_data['user']
     )
