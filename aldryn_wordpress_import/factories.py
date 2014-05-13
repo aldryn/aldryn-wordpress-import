@@ -37,6 +37,8 @@ def create_filer_plugin(filer_image, target_placeholder, language):
     image_plugin.placeholder = target_placeholder
     image_plugin.save()
 
+    return image_plugin
+
 
 def create_text_plugin(content, target_placeholder, language):
     text = Text(body=content)

@@ -161,10 +161,12 @@ class WordpressParser(object):
             except IndexError:
                 continue
             else:
-                factories.create_filer_plugin(image, post.content,
-                                              self.language)
+                filer_plugin = factories.create_filer_plugin(image,
+                                                             post.content,
+                                                             self.language)
                 if not key_visual:
                     key_visual = image
+                    filer_plugin.delete()
         post.key_visual = key_visual
         post.save()
 
