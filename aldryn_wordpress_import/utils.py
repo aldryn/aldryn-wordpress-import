@@ -135,7 +135,7 @@ class WordpressParser(object):
 
     def download_and_save(self, file_url):
         response = requests.get(file_url)
-        file_name = urllib2.unquote(file_url).decode('utf8').split('/')[-1]
+        file_name = urllib2.unquote(file_url.encode('utf-8')).decode('utf8').split('/')[-1]
         file_extension = file_name.split('.')[-1]
         io = StringIO.StringIO()
         io.write(response.content)
