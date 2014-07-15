@@ -5,7 +5,6 @@ from aldryn_wordpress_import import __version__
 REQUIREMENTS = [
     'Django>=1.5.5',
     'aldryn-blog',
-    'feedparser',
     'BeautifulSoup',
 ]
 

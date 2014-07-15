@@ -1,82 +1,152 @@
 from __future__ import unicode_literals
-from collections import defaultdict
-from datetime import datetime, timedelta
 import re
 import uuid
 import urllib2
-from time import mktime, timezone
 import StringIO
 
+from django.contrib.auth.models import User
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.utils.html import linebreaks
 from django.contrib.sites.models import Site
 
+from dateutil import parser
 from BeautifulSoup import BeautifulSoup
-import feedparser
+from django.utils.text import slugify
 import requests
-from cms.utils import get_language_from_request
+from lxml import etree
 from filer.models import Image
+from taggit.models import Tag
+from aldryn_blog.models import Category
 
 from . import factories
 
 
 class WordpressParser(object):
     base_url = None
+    data = None
+    language = None
+
+    # namespaces
+    ns = {
+        'content': '{http://purl.org/rss/1.0/modules/content/}',
+        'dc': '{http://purl.org/dc/elements/1.1/}',
+        'wp': '{http://wordpress.org/export/1.2/}',
+    }
+
+    available_authors = None
+    available_tags = None
+    available_categories = None
+
     image_placeholder = str(uuid.uuid1())
 
-    def __init__(self, request=None, user=None, language=None):
-        if user and language:
-            self.user = user
-            self.language = language
-        else:
-            self.user = request.user
-            self.language = get_language_from_request(request)
-
+    def __init__(self, wp_import):
+        self.wp_import = wp_import
+        self.file_path = self.wp_import.xml_file.path
+        self.language = self.wp_import.target_language
         self.site = Site.objects.get_current()
 
-    def parse(self, file_path):
-        if file_path is None:
+    def parse(self, instance):
+        if self.file_path is None:
             raise RuntimeError("Missing file path")
 
-        feed = feedparser.parse(file_path)
-        file_path.open()
-        self.base_url = feed['channel']['wp_base_site_url']
-        log, success, failed = [], [], []
+        tree = etree.parse(self.file_path)
+        log, success, skipped, failed = [], [], [], []
 
-        for (i, entry) in enumerate(feed["entries"]):
-            content = linebreaks(self.wp_caption(entry.content[0]["value"]))
-            content, images = self.extract_images(content)
+        self.data = tree.find('channel')
+        self.base_url = self.data.find('%sbase_site_url' % self.ns['wp']).text
+        # self.language = self.data.find('language').text.split('-')[0]  # assuming 'en-US' or 'de-DE'
 
-            # Get the time struct of the published date if possible and
-            # the updated date if we can't.
-            if entry.wp_status == 'draft':
-                failed.append('{} skipped (draft post)'.format(
-                    entry.title))
+        self.available_authors = self.find_terms('%sauthor' % self.ns['wp'], 'author_login')
+        self.available_tags = self.find_terms('%stag' % self.ns['wp'], 'tag_name')
+        self.available_categories = self.find_terms('%scategory' % self.ns['wp'], 'category_nicename')
+
+        for entry in self.data.findall('item'):
+            entry_title = entry.find('title').text
+            entry_type = entry.find('%spost_type' % self.ns['wp']).text
+
+            if entry_type != 'post':
+                skipped.append('%s skipped (entry type is %s)' % (entry_title, entry_type))
                 continue
-            pub_date = getattr(entry, "published_parsed", entry.updated_parsed)
-            pub_date = datetime.fromtimestamp(mktime(pub_date))
-            pub_date -= timedelta(seconds=timezone)
 
-            # Tags and categories are all under "tags" marked with a scheme.
-            terms = defaultdict(set)
-            for item in getattr(entry, "tags", []):
-                terms[item.scheme].add(item.term)
+            content = linebreaks(entry.find('%sencoded' % self.ns['content']).text)
+            entry_content, entry_images = self.extract_images(content)
 
-            if entry.wp_post_type == "post":
-                post = dict(title=entry.title, content=content,
-                            publication_start=pub_date, tags=terms["tag"],
-                            old_url=entry.id, images=images,
-                            user=self.user)
+            if entry.find('%sstatus' % self.ns['wp']).text == 'draft':
+                skipped.append('%s skipped (draft post)' % entry_title)
+                continue
 
-                result, status = self.convert_to_post(post)
-                if status:
-                    success.append(result)
-                else:
-                    failed.append(result)
+            entry_pub_date = parser.parse(entry.find('pubDate').text)
+
+            # author
+            entry_author_loginid = entry.find('%screator' % self.ns['dc']).text or \
+                                   entry.find('category[@domain="author"]').text
+            entry_author_raw = self.available_authors[entry_author_loginid]
+            entry_author, _ = User.objects.get_or_create(username=entry_author_raw['author_login'])
+            changed = False
+            for field in ['email', 'first_name', 'last_name']:
+                if not getattr(entry_author, field, None):
+                    setattr(entry_author, field, entry_author_raw['author_%s' % field])
+                    changed = True
+
+            if changed:
+                entry_author.save()
+
+            # category
+            # aldryn-blog only supports one category, WP multiple. we use the first one given and log a warning
+            # concerning the remaining categories
+            entry_category = None
+            entry_categories = []
+            categories_used = entry.findall('category[@domain="category"]')
+
+            for each in categories_used:
+                if each.get('nicename') in self.available_categories:
+                    entry_categories.append(each)
+                    if not entry_category:
+                        try:
+                            entry_category = Category.objects.get(translations__name=each.get('nicename'))
+                        except Category.DoesNotExist:
+                            entry_category = Category()
+                            entry_category.translate(language_code=self.language)
+                            entry_category.name = each.get('nicename')
+                            entry_category.slug = slugify(unicode(each.get('nicename')))
+                            entry_category.save()
+
+                # TODO: show warning for rest of categories
+
+            # tags
+            entry_tags = []
+            tags_used = entry.findall('category[@domain="post_tag"]')
+            for each in tags_used:
+                if each.get('nicename') in self.available_tags:
+                    tag_raw = self.available_tags[each.get('nicename')]
+                    tag, _ = Tag.objects.get_or_create(name=tag_raw['tag_name'], slug=tag_raw['tag_slug'])
+                    entry_tags.append(tag)
+
+            # slug
+            entry_slug = entry.find('%spost_name' % self.ns['wp']).text
+
+            post = dict(
+                title=entry_title,
+                content=entry_content,
+                publication_start=entry_pub_date,
+                tags=entry_tags,
+                category=entry_category,
+                images=entry_images,
+                user=entry_author,
+                slug=entry_slug,
+                language=self.language,
+            )
+
+            result, status = self.create_post(post)
+            if status:
+                success.append(result)
+            else:
+                failed.append(result)
+
         log.extend(success)
+        log.extend(skipped)
         log.extend(failed)
-        summary = '{} posts imported, {} failed'.format(len(success),
-                                                        len(failed))
+        summary = '{} posts imported, {} skipped, {} failed'.format(len(success), len(skipped), len(failed))
         log.append(summary)
         return '\n'.join(log)
 
@@ -146,7 +216,7 @@ class WordpressParser(object):
                                          file=saved_file)
         return filer_img
 
-    def convert_to_post(self, post_data):
+    def create_post(self, post_data):
         post_parts = post_data['content'].split(self.image_placeholder)
         try:
             post = factories.create_post(post_data, parts=post_parts)
@@ -162,15 +232,27 @@ class WordpressParser(object):
             except IndexError:
                 continue
             else:
-                filer_plugin = factories.create_filer_plugin(image,
-                                                             post.content,
-                                                             self.language)
                 if not key_visual:
                     key_visual = image
-                    filer_plugin.delete()
+                else:
+                    factories.create_filer_plugin(image, post.content, self.language)
         post.key_visual = key_visual
+        post.category = post_data['category']
+        for tag in post_data['tags']:
+            post.tags.add(tag)
+
         post.save()
 
         return "Imported post {}".format(post_data['title']), True
 
-
+    def find_terms(self, lookup, key_field='term_id'):
+        results = {}
+        entities = self.data.findall('%s' % lookup)
+        for entity in entities:
+            result = {}
+            for child in entity.getchildren():
+                result[child.tag.replace(self.ns['wp'], '')] = child.text
+            result_key = entity.find('%s%s' % (self.ns['wp'], key_field)).text
+            result_key = int(result_key) if result_key.isdigit() else result_key
+            results[result_key] = result
+        return results

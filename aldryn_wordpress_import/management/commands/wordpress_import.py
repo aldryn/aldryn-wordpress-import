@@ -1,16 +1,16 @@
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import BaseCommand
+
 from ...models import WordPressImport
 from ...utils import WordpressParser
 
 
 class Command(BaseCommand):
-    args = '<wordpressimport_id>, language'
+    args = '<wordpressimport_id>'
     help = 'Executed the specified import'
 
     def handle(self, *args, **options):
         wp_import = WordPressImport.objects.get(pk=int(args[0]))
-        lang_code = args[1]
-        parser = WordpressParser(user=wp_import.author, language=lang_code)
+        parser = WordpressParser(wp_import=wp_import)
         log = parser.parse(wp_import.xml_file)
         wp_import.log = log
         wp_import.imported = True

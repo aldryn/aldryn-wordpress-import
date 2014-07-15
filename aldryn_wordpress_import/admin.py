@@ -1,6 +1,5 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.core.urlresolvers import reverse
-from django.contrib import messages
 from django.http import HttpResponse
 from django.shortcuts import redirect
 
@@ -9,8 +8,9 @@ from .utils import WordpressParser
 
 
 class WordPressImportAdmin(admin.ModelAdmin):
-    list_display = ('author', 'created', 'xml_file', 'imported')
+    list_display = ('__str__', 'created', 'xml_file', 'imported')
     raw_id_fields = ['author']
+    fields = ['xml_file', 'target_language', ('create_authors', 'author'), 'log']
 
     def content_iterator(self, request, *args, **kwargs):
         yield ''
@@ -18,9 +18,6 @@ class WordPressImportAdmin(admin.ModelAdmin):
             request, *args, **kwargs).content
 
     def add_view(self, request, *args, **kwargs):
-        data = request.GET.copy()
-        data['author'] = request.user.id  # default author is logged-in user
-        request.GET = data
         if request.method == 'POST':
             content_iterator = self.content_iterator(request, *args, **kwargs)
             response = HttpResponse(content_iterator, status=302)
@@ -33,9 +30,9 @@ class WordPressImportAdmin(admin.ModelAdmin):
 
     def change_view(self, request, object_id, form_url='', extra_context=None):
         if request.method == 'POST' and 'execute' in request.POST:
-            parser = WordpressParser(request)
             instance = self.get_object(request, object_id)
-            log = parser.parse(instance.xml_file)
+            parser = WordpressParser(wp_import=instance)
+            log = parser.parse(instance)
             instance.log = log
             instance.imported = True
             instance.save()
