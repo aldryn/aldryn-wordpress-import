@@ -1,8 +1,8 @@
+from django.template.defaultfilters import truncatewords_html, slugify
+
 from aldryn_blog.models import Post
 from cmsplugin_filer_image.models import FilerImage
 from djangocms_text_ckeditor.models import Text
-from django.template.defaultfilters import truncatewords_html
-from django.template.defaultfilters import slugify
 
 
 def create_post(post_data, parts):
