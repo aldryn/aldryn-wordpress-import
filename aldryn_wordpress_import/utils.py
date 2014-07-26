@@ -125,6 +125,10 @@ class WordpressParser(object):
             # slug
             entry_slug = entry.find('%spost_name' % self.ns['wp']).text
 
+            # wp link
+            link = entry.find('link').text
+
+
             post = dict(
                 title=entry_title,
                 content=entry_content,
@@ -135,6 +139,7 @@ class WordpressParser(object):
                 user=entry_author,
                 slug=entry_slug,
                 language=self.language,
+                link=link,
             )
 
             result, status = self.create_post(post)
@@ -240,6 +245,10 @@ class WordpressParser(object):
         post.category = post_data['category']
         for tag in post_data['tags']:
             post.tags.add(tag)
+
+        # app data field for wp import info
+        if hasattr(post, 'app_data'):
+            post.app_data.wp_import.link = post_data['link']
 
         post.save()
 
