@@ -7,9 +7,9 @@ REQUIREMENTS = [
     'aldryn-blog',
     'BeautifulSoup',
     'django-taggit',
-    'django-dateutil',
     'django-filer',
     'lxml',
+    'python-dateutil',
     'requests',
 ]
 
