@@ -6,6 +6,11 @@ REQUIREMENTS = [
     'Django>=1.5.5',
     'aldryn-blog',
     'BeautifulSoup',
+    'django-taggit',
+    'django-dateutil',
+    'django-filer',
+    'lxml',
+    'requests',
 ]
 
 CLASSIFIERS = [

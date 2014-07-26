@@ -8,10 +8,10 @@ from django.contrib.auth.models import User
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.utils.html import linebreaks
 from django.contrib.sites.models import Site
+from django.utils.text import slugify
 
 from dateutil import parser
 from BeautifulSoup import BeautifulSoup
-from django.utils.text import slugify
 import requests
 from lxml import etree
 from filer.models import Image
@@ -78,8 +78,8 @@ class WordpressParser(object):
             entry_pub_date = parser.parse(entry.find('pubDate').text)
 
             # author
-            entry_author_loginid = entry.find('%screator' % self.ns['dc']).text or \
-                                   entry.find('category[@domain="author"]').text
+            entry_author_loginid = \
+                entry.find('%screator' % self.ns['dc']).text or entry.find('category[@domain="author"]').text
             entry_author_raw = self.available_authors[entry_author_loginid]
             entry_author, _ = User.objects.get_or_create(username=entry_author_raw['author_login'])
             changed = False
@@ -127,7 +127,6 @@ class WordpressParser(object):
 
             # wp link
             link = entry.find('link').text
-
 
             post = dict(
                 title=entry_title,
