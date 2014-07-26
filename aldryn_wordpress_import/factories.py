@@ -1,4 +1,4 @@
-from django.template.defaultfilters import truncatewords_html, slugify
+from django.template.defaultfilters import truncatewords_html
 
 from aldryn_blog.models import Post
 from cmsplugin_filer_image.models import FilerImage
@@ -10,16 +10,16 @@ def create_post(post_data, parts):
         first_part = parts[0]
     except IndexError:
         first_part = post_data['title']
-    slug = slugify(post_data['title'])
-    post_with_slug = Post.objects.filter(slug=slug)
+    post_with_slug = Post.objects.filter(slug=post_data['slug'])
     if post_with_slug.exists():
         raise ValueError('Slug is not unique')
     post = Post(
         title=post_data['title'],
-        slug=slug,
+        slug=post_data['slug'],
         lead_in=truncatewords_html(first_part, 55),
         publication_start=post_data['publication_start'],
-        author=post_data['user']
+        author=post_data['user'],
+        language=post_data['language'],
     )
     post.save()
     return post
@@ -41,7 +41,7 @@ def create_filer_plugin(filer_image, target_placeholder, language):
 
 
 def create_text_plugin(content, target_placeholder, language):
-    text = Text(body=content)
+    text = Text(body=content.decode('utf-8'))
     text.position = 0
     text.tree_id = None
     text.lft = None
