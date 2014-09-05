@@ -17,6 +17,7 @@ from lxml import etree
 from filer.models import Image
 from taggit.models import Tag
 from aldryn_blog.models import Category
+from cms.plugin_pool import plugin_pool
 
 from . import factories
 
@@ -60,7 +61,13 @@ class WordpressParser(object):
         self.available_tags = self.find_terms('%stag' % self.ns['wp'], 'tag_name')
         self.available_categories = self.find_terms('%scategory' % self.ns['wp'], 'category_nicename')
 
-        for entry in self.data.findall('item'):
+        # Before creating cms plugins we have to make
+        # sure all are loaded and ready to use
+        plugin_pool.get_all_plugins()
+
+        all_entries = self.data.findall('item')
+
+        for entry in all_entries:
             entry_title = entry.find('title').text
             entry_type = entry.find('%spost_type' % self.ns['wp']).text
 
@@ -150,7 +157,7 @@ class WordpressParser(object):
         log.extend(success)
         log.extend(skipped)
         log.extend(failed)
-        summary = '{} posts imported, {} skipped, {} failed'.format(len(success), len(skipped), len(failed))
+        summary = '{} posts imported, {} skipped, {} failed, {} total'.format(len(success), len(skipped), len(failed), len(all_entries))
         log.append(summary)
         return '\n'.join(log)
 
